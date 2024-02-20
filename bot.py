@@ -4,7 +4,7 @@ from telebot import types
 import datetime
 from threading import Lock
 
-bot = telebot.TeleBot("TOKEN")
+bot = telebot.TeleBot("6437286640:AAFmkoOCXx6KVakLR0PJdAhnQBVmNJCMm-g")
 
 conn = sqlite3.connect('bank.db', check_same_thread=False)
 cursor = conn.cursor()
@@ -37,18 +37,26 @@ def execute_query(query):
         cursor.execute(query)
         conn.commit()
 
-# Обновленный обработчик для взятия кредита с выбором суммы
-@bot.message_handler(commands=['take_credit'])
+
+# Обработчик для команды /start
+@bot.message_handler(commands=['start'])
+def send_welcome(message):
+    markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
+    markup.add(types.KeyboardButton('/take_credit'))
+    markup.add(types.KeyboardButton('/view_payments'))
+    markup.add(types.KeyboardButton('/make_payment'))
+    bot.send_message(message.chat.id, "Выберите действие:", reply_markup=markup)
+
+# Обработчик для взятия кредита
+@bot.message_handler(func=lambda message: message.text == '/take_credit')
 def take_credit(message):
-    user_id = message.from_user.id
-    
     markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
     amounts = [1000, 5000, 10000]  # Ваши варианты сумм кредита
     buttons = [types.KeyboardButton(str(amount)) for amount in amounts]
-    
     markup.add(*buttons)
     
     bot.send_message(message.chat.id, "Выберите сумму кредита:", reply_markup=markup)
+    bot.register_next_step_handler(message, handle_credit_choice)
 
 # Обработчик для выбора суммы кредита и выполнения действий
 @bot.message_handler(func=lambda message: message.text.isdigit())
