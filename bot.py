@@ -151,8 +151,13 @@ def process_payment_input(message, credit_id, amount, duration, interest_rate):
         query = f"INSERT INTO payments (credit_id, payment_date, payment_amount) VALUES ({credit_id}, '{payment_date}', {monthly_payment})"
         execute_query(query)
         updated_amount = amount - monthly_payment  # Уменьшаем сумму кредита на введенный платеж
-        query = f"UPDATE credits SET amount={updated_amount} WHERE id={credit_id}"
-        execute_query(query)
+        if updated_amount <= 0:
+            bot.send_message(message.chat.id, 'Вы закрыли кредит')
+            query = f"DELETE FROM credits WHERE id={credit_id}"
+            execute_query(query)
+        else:
+            query = f"UPDATE credits SET amount={updated_amount} WHERE id={credit_id}"
+            execute_query(query)
         bot.send_message(message.chat.id, f'Платеж на сумму {monthly_payment} успешно проведен.')
     except ValueError:
         bot.send_message(message.chat.id, 'Пожалуйста, введите корректную сумму платежа.')
