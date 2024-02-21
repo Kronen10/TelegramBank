@@ -50,12 +50,10 @@ def send_welcome(message):
     markup.add(types.KeyboardButton('/info'))
     bot.send_message(message.chat.id, "Выберите действие:", reply_markup=markup)
 
-
-
 # Обработчик для кнопки /info
 @bot.message_handler(commands=['info'])
 def send_info(message):
-    bot.send_message(message.chat.id, "Добро пожаловать в Telegram версию банка ААААА. Пользуясь им, вы поймете к чему такое название. По всем вопросам пинайте @Kronen10, он виноват если что-то не работает.")
+    bot.send_message(message.chat.id, "Добро пожаловать в Telegram версию банка ААААА. Пользуясь им, вы поймете к чему такое название. \n\nПо всем вопросам пинайте @Kronen10, он виноват если что-то не работает. \n\nЗаказчиком выступает Л.А. Якубович")
 
 
 # Обработчик для взятия кредита
@@ -110,17 +108,33 @@ def view_payments(message):
         total_payment = amount * (1 + interest_rate)
         monthly_payment = total_payment / duration
         payments_info = f"Сумма кредита: {amount}\nПроцентная ставка: {interest_rate}\nПлатеж в месяц: {monthly_payment}\n\n"
+
+        # Генерация графика погашения кредита на 12 месяцев
+        payment_schedule = "График погашения кредита на 12 месяцев:\n"
+        remaining_amount = amount
+        payment_date = datetime.datetime.now().date()
+        for month in range(1, 13):
+            interest_amount = remaining_amount * interest_rate / 12
+            principal_amount = monthly_payment - interest_amount
+            remaining_amount -= principal_amount
+            payment_schedule += f"{payment_date.strftime('%Y-%m-%d')}: Платеж - {monthly_payment}, Остаток задолженности - {remaining_amount}\n"
+            payment_date += datetime.timedelta(days=30)  # Добавляем 30 дней для получения даты следующего платежа
+
+        payments_info += payment_schedule
+
         query = f"SELECT payment_date, payment_amount FROM payments WHERE credit_id={credit_id} ORDER BY payment_date ASC"
         cursor.execute(query)
         rows = cursor.fetchall()
         if rows:
+            payment_history = "История платежей:\n"
             for row in rows:
                 payment_date, payment_amount = row
                 if isinstance(payment_date, str):
                     payment_date = datetime.datetime.strptime(payment_date, '%Y-%m-%d')
-                payments_info += f"{payment_date.strftime('%Y-%m-%d')}: {payment_amount}\n"
+                payment_history += f"{payment_date.strftime('%Y-%m-%d')}: {payment_amount}\n"
+            payments_info += "\n" + payment_history
         else:
-            payments_info += "Нет платежей."
+            payments_info += "\nНет платежей."
         bot.send_message(message.chat.id, payments_info)
     else:
         bot.send_message(message.chat.id, 'Нет активных кредитов.')
@@ -147,12 +161,20 @@ def make_payment(message):
 def process_payment_input(message, credit_id, amount, duration, interest_rate):
     try:
         monthly_payment = float(message.text)
-        payment_date = datetime.datetime.now().date()
+        bot.send_message(message.chat.id, "Введите дату платежа в формате ГГГГ-ММ-ДД (например, 2024-02-21):")
+        bot.register_next_step_handler(message, lambda msg: process_payment_date(msg, credit_id, monthly_payment, amount))
+    except ValueError:
+        bot.send_message(message.chat.id, 'Пожалуйста, введите корректную сумму платежа.')
+
+# Обработчик для обработки введенной пользователем даты платежа
+def process_payment_date(message, credit_id, monthly_payment, amount):
+    try:
+        payment_date = datetime.datetime.strptime(message.text, '%Y-%m-%d').date()
         query = f"INSERT INTO payments (credit_id, payment_date, payment_amount) VALUES ({credit_id}, '{payment_date}', {monthly_payment})"
         execute_query(query)
         updated_amount = amount - monthly_payment  # Уменьшаем сумму кредита на введенный платеж
         if updated_amount <= 0:
-            bot.send_message(message.chat.id, 'Вы закрыли кредит')
+            bot.send_message(message.chat.id, 'Кредит закрыт')
             query = f"DELETE FROM credits WHERE id={credit_id}"
             execute_query(query)
         else:
@@ -160,7 +182,7 @@ def process_payment_input(message, credit_id, amount, duration, interest_rate):
             execute_query(query)
         bot.send_message(message.chat.id, f'Платеж на сумму {monthly_payment} успешно проведен.')
     except ValueError:
-        bot.send_message(message.chat.id, 'Пожалуйста, введите корректную сумму платежа.')
+        bot.send_message(message.chat.id, 'Пожалуйста, введите корректную дату платежа в формате ГГГГ-ММ-ДД (например, 2024-02-21).')
 
 
 
