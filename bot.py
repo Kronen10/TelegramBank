@@ -174,16 +174,18 @@ def process_payment_date(message, credit_id, monthly_payment, amount):
         execute_query(query)
         updated_amount = amount - monthly_payment  # Уменьшаем сумму кредита на введенный платеж
         if updated_amount <= 0:
-            bot.send_message(message.chat.id, 'Кредит закрыт')
+            bot.send_message(message.chat.id, 'Вы закрыли кредит')
             query = f"DELETE FROM credits WHERE id={credit_id}"
             execute_query(query)
+            global credit_taken
+            credit_taken = False  # Сбрасываем флаг взятого кредита
+            send_welcome(message)  # Возврат в стартовое меню после полного погашения кредита
         else:
             query = f"UPDATE credits SET amount={updated_amount} WHERE id={credit_id}"
             execute_query(query)
         bot.send_message(message.chat.id, f'Платеж на сумму {monthly_payment} успешно проведен.')
     except ValueError:
         bot.send_message(message.chat.id, 'Пожалуйста, введите корректную дату платежа в формате ГГГГ-ММ-ДД (например, 2024-02-21).')
-
 
 
 # Обработчик для остальных сообщений
